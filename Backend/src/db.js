@@ -1,71 +1,73 @@
-// This file sets up the database. We use SQLite, which stores the whole
-// database as a single file (data.db) right in this project folder -
-// no separate database server to install or run.
-const { DatabaseSync } = require('node:sqlite');
-const path = require('path');
+// This file sets up the database connection using Turso (a free, cloud-
+// hosted SQLite-compatible database) via the libSQL client.
+//
+// The same client also works against a plain local file - if
+// DATABASE_URL isn't set, it falls back to "file:data.db" automatically.
+// That means you can keep developing locally exactly like before,
+// without needing a Turso account just to run things on your laptop.
+const { createClient } = require('@libsql/client');
 
-const db = new DatabaseSync(path.join(__dirname, '..', 'data.db'));
-db.exec('PRAGMA journal_mode = WAL;');
-db.exec('PRAGMA foreign_keys = ON;');
-// Runs once on startup. CREATE TABLE IF NOT EXISTS means it's safe to
-// run this every time the server starts - it won't wipe existing data.
-db.exec(`
-  CREATE TABLE IF NOT EXISTS offices (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL
-  );
+const db = createClient({
+  url: process.env.DATABASE_URL || 'file:data.db',
+  authToken: process.env.DATABASE_AUTH_TOKEN || undefined,
+});
 
-  CREATE TABLE IF NOT EXISTS schemes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    priority INTEGER NOT NULL -- 1 = highest priority (e.g. old age pension)
-  );
+// Runs once, creates tables if they don't exist yet. Every route awaits
+// this promise before touching the database - that makes it safe even
+// on a "cold start" (the first request after a serverless function has
+// been asleep), since we can't rely on a server that's been running
+// continuously to have already set things up.
+const ready = db.batch(
+  [
+    `CREATE TABLE IF NOT EXISTS offices (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS schemes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      priority INTEGER NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS officers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      username TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      office_id INTEGER REFERENCES offices(id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS applicants (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      phone TEXT NOT NULL,
+      address TEXT
+    )`,
+    `CREATE TABLE IF NOT EXISTS applications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tracking_id TEXT NOT NULL UNIQUE,
+      applicant_id INTEGER NOT NULL REFERENCES applicants(id),
+      scheme_id INTEGER NOT NULL REFERENCES schemes(id),
+      office_id INTEGER NOT NULL REFERENCES offices(id),
+      current_stage TEXT NOT NULL DEFAULT 'submitted',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS status_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      application_id INTEGER NOT NULL REFERENCES applications(id),
+      stage TEXT NOT NULL,
+      note TEXT,
+      changed_by TEXT,
+      changed_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS documents (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      application_id INTEGER NOT NULL REFERENCES applications(id),
+      doc_name TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      note TEXT
+    )`,
+  ],
+  'write'
+);
 
-  CREATE TABLE IF NOT EXISTS officers (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    username TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
-    office_id INTEGER REFERENCES offices(id)
-  );
-
-  CREATE TABLE IF NOT EXISTS applicants (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    phone TEXT NOT NULL,
-    address TEXT
-  );
-
-  CREATE TABLE IF NOT EXISTS applications (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    tracking_id TEXT NOT NULL UNIQUE,
-    applicant_id INTEGER NOT NULL REFERENCES applicants(id),
-    scheme_id INTEGER NOT NULL REFERENCES schemes(id),
-    office_id INTEGER NOT NULL REFERENCES offices(id),
-    current_stage TEXT NOT NULL DEFAULT 'submitted',
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  );
-
-  -- Append-only: every status change becomes a NEW row here, never an
-  -- overwrite. This is what powers both the citizen's timeline view and
-  -- the officer's "how long has this been pending" calculation.
-  CREATE TABLE IF NOT EXISTS status_history (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    application_id INTEGER NOT NULL REFERENCES applications(id),
-    stage TEXT NOT NULL,
-    note TEXT,
-    changed_by TEXT,
-    changed_at TEXT NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS documents (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    application_id INTEGER NOT NULL REFERENCES applications(id),
-    doc_name TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'pending', -- pending | received | missing
-    note TEXT
-  );
-`);
-
-module.exports = db;
+module.exports = { db, ready };

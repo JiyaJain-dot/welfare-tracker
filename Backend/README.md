@@ -111,3 +111,4 @@ They don't need this codebase at all — just the table above and:
 - Deploy this to Render or Railway (free tier) so your teammates hit a real URL instead of your laptop
 - Swap the console SMS stub in `src/utils/sms.js` for a real provider (MSG91, Kaleyra) once you have an account
 - Add rate-limiting to the public tracking endpoint before going live, so it can't be scraped
+
