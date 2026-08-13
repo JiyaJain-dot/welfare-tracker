@@ -1,7 +1,11 @@
 # Welfare Tracker — Backend
 
-Backend API for the pension/welfare scheme application tracking system.
-Built with Node.js, Express, and SQLite (no separate database software needed).
+# For Frontend devs
+# Base URL: http://localhost:4000/api/v1 (while you're all developing locally)
+# The endpoint table (method, URL, what to send, what comes back)
+# The officer test login (officer1 / officer123) so they can build the dashboard without needing you online
+# Backend API for the pension/welfare scheme application tracking system.
+# Built with Node.js, Express, and SQLite (no separate database software needed).
 
 ## What this backend does
 
