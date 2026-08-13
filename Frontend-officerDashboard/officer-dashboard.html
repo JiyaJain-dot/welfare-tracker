@@ -1,0 +1,142 @@
+<!-- Officer dashboard page for reviewing and updating welfare applications. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Officer Dashboard | Welfare Scheme Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="js/officer-dashboard.js" defer></script>
+</head>
+<body class="dashboard-page">
+  <header class="site-header dashboard-header">
+    <div class="header-inner dashboard-header-inner">
+      <span class="header-brand">Citizen Services</span>
+      <div class="officer-session">
+        <span id="officerIdentity">Officer</span>
+        <button class="logout-button" type="button" id="logoutButton">Logout</button>
+      </div>
+    </div>
+    <div class="header-accent" aria-hidden="true">
+      <span></span>
+      <span></span>
+    </div>
+  </header>
+
+  <div class="scheme-bar" aria-label="Available schemes">
+    <span>Old Age Pension</span>
+    <span>Widow Pension</span>
+    <span>Disability Pension</span>
+    <span>Scholarship</span>
+    <span>Ration Card</span>
+    <span>Bank Schemes</span>
+  </div>
+
+  <main class="dashboard-shell">
+    <section class="dashboard-title" aria-labelledby="dashboardTitle">
+      <p class="eyebrow"><span></span>Officer Portal<span></span></p>
+      <h1 id="dashboardTitle">Application Review Dashboard</h1>
+      <p class="tagline">Review priority-sorted applications, monitor pending work, and update welfare application stages.</p>
+    </section>
+
+    <div class="dashboard-alert" id="dashboardAlert" role="alert" hidden></div>
+    <div class="dashboard-loading" id="dashboardLoading">Loading dashboard data...</div>
+
+    <section class="summary-grid" aria-label="Application summary" id="summaryGrid">
+      <article class="summary-card summary-blue">
+        <span class="summary-number" id="totalApplications">0</span>
+        <span class="summary-label">Total Applications</span>
+      </article>
+      <article class="summary-card summary-gold">
+        <span class="summary-number" id="pendingReview">0</span>
+        <span class="summary-label">Pending Review</span>
+      </article>
+      <article class="summary-card summary-red" id="overdueCard">
+        <span class="summary-number" id="overdueApplications">0</span>
+        <span class="summary-label">Overdue</span>
+      </article>
+      <article class="summary-card summary-green">
+        <span class="summary-number" id="approvedThisMonth">0</span>
+        <span class="summary-label">Approved This Month</span>
+      </article>
+    </section>
+
+    <section class="dashboard-panel scheme-breakdown" aria-labelledby="schemeBreakdownTitle">
+      <div class="panel-heading">
+        <div>
+          <p class="section-kicker">Scheme queue</p>
+          <h2 id="schemeBreakdownTitle">Applications by Scheme</h2>
+        </div>
+      </div>
+      <div class="scheme-breakdown-list" id="schemeBreakdownList"></div>
+    </section>
+
+    <section class="dashboard-panel applications-panel" aria-labelledby="applicationsTitle">
+      <div class="panel-heading applications-heading">
+        <div>
+          <p class="section-kicker">Priority queue</p>
+          <h2 id="applicationsTitle">Applications</h2>
+        </div>
+        <button class="sort-toggle" type="button" id="sortToggleButton">Sort by Days Waiting</button>
+      </div>
+
+      <div class="empty-state" id="emptyState" hidden>No applications yet.</div>
+
+      <div class="table-wrap" id="applicationsTableWrap" hidden>
+        <table class="applications-table">
+          <thead>
+            <tr>
+              <th>Tracking ID</th>
+              <th>Applicant Name</th>
+              <th>Scheme</th>
+              <th>
+                <button class="table-sort-button" type="button" id="daysSortHeader">Days Waiting</button>
+              </th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="applicationsTableBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <dialog class="manage-dialog" id="manageDialog">
+    <form method="dialog" class="manage-dialog-inner">
+      <div class="dialog-heading">
+        <div>
+          <p class="section-kicker">Manage application</p>
+          <h2 id="manageTitle">Application Details</h2>
+        </div>
+        <button class="dialog-close" type="submit" aria-label="Close dialog">Close</button>
+      </div>
+
+      <div class="details-grid" id="applicationDetails"></div>
+
+      <div class="manage-actions">
+        <label for="stageSelect">Update Stage</label>
+        <select id="stageSelect" name="stage">
+          <option value="pending">Pending</option>
+          <option value="under_review">Under Review</option>
+          <option value="verified">Verified</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
+        </select>
+        <button class="submit-button" type="button" id="updateStageButton">Update Status</button>
+      </div>
+
+      <div class="manage-actions">
+        <label for="documentName">Missing Document</label>
+        <input id="documentName" name="documentName" type="text" placeholder="Example: Aadhaar card">
+        <button class="secondary-action" type="button" id="flagDocumentButton">Flag Missing Document</button>
+      </div>
+
+      <p class="action-message" id="manageMessage" role="status" hidden></p>
+    </form>
+  </dialog>
+</body>
+</html>
