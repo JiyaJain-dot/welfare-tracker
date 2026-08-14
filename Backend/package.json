@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "seed": "node src/seed.js"
+    "seed": "node src/seed.js",
+    "update-schemes": "node src/update-schemes.js"
   },
   "dependencies": {
     "@libsql/client": "^0.14.0",
