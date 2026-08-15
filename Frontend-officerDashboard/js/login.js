@@ -1,6 +1,5 @@
 // Login and role-selection behavior for the shared entry page.
 
-const API_BASE_URL = "http://localhost:4000/api/v1";
 const NETWORK_ERROR_MESSAGE = "Could not reach the server - check that the backend is running";
 
 const formPanel = document.getElementById("formPanel");

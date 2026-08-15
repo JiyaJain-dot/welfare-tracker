@@ -1,15 +1,18 @@
 // Officer dashboard behavior for authenticated review and status updates.
 
-const API_BASE_URL = "http://localhost:4000/api/v1";
 const NETWORK_ERROR_MESSAGE = "Could not reach the server - check that the backend is running";
 const SCHEME_PRIORITY = [
   "old age pension",
-  "widow pension",
+  "old-age pension",
+  "differently-abled pension",
   "disability pension",
+  "disabled pension",
+  "widow pension",
   "scholarship",
+  "scholarships",
   "ration card",
-  "bank schemes",
   "bank scheme",
+  "bank schemes",
 ];
 
 let officerToken = null;
@@ -125,7 +128,7 @@ function normalizeApplications(data) {
 
 function renderStats(stats) {
   const total = pickNumber(stats, ["totalApplications", "total", "totalCount", "count"]) ?? applications.length;
-  const pending = pickNumber(stats, ["pendingReview", "pending", "totalPending", "pendingCount"]) ?? countByStatus(["pending", "under_review"]);
+  const pending = pickNumber(stats, ["pendingReview", "pending", "totalPending", "pendingCount"]) ?? countByStatus(["submitted", "verification", "review"]);
   const overdue = pickNumber(stats, ["overdue", "overdueApplications", "overdueCount"]) ?? countOverdue();
   const approvedMonth = pickNumber(stats, ["approvedThisMonth", "approved_month", "monthlyApproved", "approvedCount"]) ?? countApprovedThisMonth();
 
@@ -334,8 +337,18 @@ function openManageDialog(application) {
 
 function normalizeStageValue(status) {
   const normalized = String(status || "").toLowerCase().replace(/\s+/g, "_");
-  const allowed = ["pending", "under_review", "verified", "approved", "rejected"];
-  return allowed.includes(normalized) ? normalized : "under_review";
+  const stageMap = {
+    pending: "submitted",
+    submitted: "submitted",
+    under_review: "review",
+    review: "review",
+    verified: "verification",
+    verification: "verification",
+    approved: "approved",
+    rejected: "rejected",
+  };
+
+  return stageMap[normalized] || "review";
 }
 
 async function handleStatusUpdate() {
