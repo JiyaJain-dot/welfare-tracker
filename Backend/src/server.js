@@ -28,6 +28,11 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/applications', publicRoutes);
 app.use('/api/v1/officer', officerRoutes);
 
+// Aliases requested by the frontend team - same data, different URL
+// shape, so their existing frontend code doesn't need path changes.
+app.get('/api/v1/tracker/:trackingId', publicRoutes.trackHandler);
+app.get('/api/v1/notifications/:trackingId', publicRoutes.notificationsHandler);
+
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Something went wrong' } });

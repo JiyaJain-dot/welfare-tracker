@@ -66,6 +66,13 @@ const ready = db.batch(
       status TEXT NOT NULL DEFAULT 'pending',
       note TEXT
     )`,
+    `CREATE TABLE IF NOT EXISTS notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      application_id INTEGER NOT NULL REFERENCES applications(id),
+      type TEXT NOT NULL, -- 'status_update' | 'document_missing' | 'info'
+      message TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )`,
   ],
   'write'
 );

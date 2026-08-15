@@ -38,6 +38,11 @@ router.post('/applications', async (req, res) => {
     args: [applicationId, req.officer.username, now],
   });
 
+  await db.execute({
+    sql: `INSERT INTO notifications (application_id, type, message, created_at) VALUES (?, 'status_update', ?, ?)`,
+    args: [applicationId, `Application received. Tracking ID: ${trackingId}.`, now],
+  });
+
   await sendSms(phone, `Your welfare application has been received. Your tracking ID is ${trackingId}. Use it to check status anytime.`);
 
   res.status(201).json({ data: { applicationId, trackingId } });
@@ -128,6 +133,11 @@ router.patch('/applications/:id/status', async (req, res) => {
     args: [id, stage, note || null, req.officer.username, now],
   });
 
+  await db.execute({
+    sql: `INSERT INTO notifications (application_id, type, message, created_at) VALUES (?, 'status_update', ?, ?)`,
+    args: [id, `Status changed to "${stage}".${note ? ' ' + note : ''}`, now],
+  });
+
   await sendSms(application.phone, `Update on your application ${application.tracking_id}: status changed to "${stage}".${note ? ' Note: ' + note : ''}`);
 
   res.json({ data: { id: Number(id), stage, updatedAt: now } });
@@ -175,6 +185,10 @@ router.post('/applications/:id/documents', async (req, res) => {
   }
 
   if (status === 'missing') {
+    await db.execute({
+      sql: `INSERT INTO notifications (application_id, type, message, created_at) VALUES (?, 'document_missing', ?, ?)`,
+      args: [id, `Action needed: "${docName}" is missing. Please submit it to proceed.`, new Date().toISOString()],
+    });
     await sendSms(application.phone, `Action needed on application ${application.tracking_id}: "${docName}" is missing. Please submit it to proceed.`);
   }
 

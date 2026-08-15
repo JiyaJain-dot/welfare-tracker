@@ -3,14 +3,8 @@ const { db, ready } = require('../db');
 
 const router = express.Router();
 
-// GET /api/v1/applications/track/:trackingId
-// No login needed - anyone with the tracking ID can check status, same
-// as a courier tracking number.
-router.get('/track/:trackingId', async (req, res) => {
-  const { trackingId } = req.params;
-  await ready;
-
-  const appResult = await db.execute({
+async function getApplicationByTrackingId(trackingId) {
+  const result = await db.execute({
     sql: `SELECT applications.id, applications.tracking_id, applications.current_stage,
                  applications.created_at, applications.updated_at,
                  schemes.name AS scheme_name,
@@ -21,8 +15,16 @@ router.get('/track/:trackingId', async (req, res) => {
           WHERE applications.tracking_id = ?`,
     args: [trackingId],
   });
-  const application = appResult.rows[0];
+  return result.rows[0];
+}
 
+// Shared handler - used by both /track/:trackingId and the /tracker
+// alias your frontend team is building against.
+async function trackHandler(req, res) {
+  const { trackingId } = req.params;
+  await ready;
+
+  const application = await getApplicationByTrackingId(trackingId);
   if (!application) {
     return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'No application found for this tracking ID' } });
   }
@@ -56,6 +58,33 @@ router.get('/track/:trackingId', async (req, res) => {
           : null,
     },
   });
-});
+}
+
+// Notifications for a tracking ID - separate from the timeline, meant
+// for a "bell icon" / notifications list UI on the client dashboard.
+async function notificationsHandler(req, res) {
+  const { trackingId } = req.params;
+  await ready;
+
+  const application = await getApplicationByTrackingId(trackingId);
+  if (!application) {
+    return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'No application found for this tracking ID' } });
+  }
+
+  const notificationsResult = await db.execute({
+    sql: `SELECT type, message, created_at FROM notifications WHERE application_id = ? ORDER BY created_at DESC`,
+    args: [application.id],
+  });
+
+  res.json({ data: notificationsResult.rows });
+}
+
+// GET /api/v1/applications/track/:trackingId
+router.get('/track/:trackingId', trackHandler);
+
+// GET /api/v1/applications/notifications/:trackingId
+router.get('/notifications/:trackingId', notificationsHandler);
 
 module.exports = router;
+module.exports.trackHandler = trackHandler;
+module.exports.notificationsHandler = notificationsHandler;
