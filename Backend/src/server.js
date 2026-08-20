@@ -15,7 +15,8 @@ app.use(cors({
   origin: [
     'http://localhost:3000',
     'http://localhost:5173',
-    'https://welfare-tracker-mauve.vercel.app'
+    'https://welfare-tracker-mauve.vercel.app',
+    'https://welfare-tracker-l7bg.vercel.app'
   ]
 }));
 
