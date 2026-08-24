@@ -73,6 +73,13 @@ const ready = db.batch(
       message TEXT NOT NULL,
       created_at TEXT NOT NULL
     )`,
+    `CREATE TABLE IF NOT EXISTS external_consents (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      application_id INTEGER NOT NULL UNIQUE REFERENCES applications(id),
+      consent_granted INTEGER NOT NULL DEFAULT 0,
+      granted_by TEXT,
+      granted_at TEXT
+    )`,
   ],
   'write'
 );
