@@ -3,6 +3,7 @@ const { db, ready } = require('../db');
 const { requireOfficer } = require('../middleware/auth');
 const { generateTrackingId } = require('../utils/trackingId');
 const { sendSms } = require('../utils/sms');
+const { fetchNormalizedRationCards } = require('../connectors/rationCardConnector');
 
 const router = express.Router();
 router.use(requireOfficer); // every route below requires officer login
@@ -49,31 +50,42 @@ router.post('/applications', async (req, res) => {
 });
 
 // GET /api/v1/officer/applications?stage=verification
+// Now pulls from TWO systems: our own database, and the connected
+// Ration Card System (a different department's platform). Each row is
+// tagged with source_system so the dashboard can badge where it came
+// from - this is the interoperability layer in action.
 router.get('/applications', async (req, res) => {
   const { stage } = req.query;
   await ready;
 
-  let sql = `
+  const sql = `
     SELECT applications.id, applications.tracking_id, applications.current_stage,
            applications.created_at, applications.updated_at,
            schemes.name AS scheme_name, schemes.priority,
-           applicants.name AS applicant_name, applicants.phone
+           applicants.name AS applicant_name, applicants.phone,
+           'Welfare Tracker' AS source_system
     FROM applications
     JOIN schemes ON schemes.id = applications.scheme_id
     JOIN applicants ON applicants.id = applications.applicant_id
     WHERE applications.office_id = ?
+    ORDER BY schemes.priority ASC, applications.created_at ASC
   `;
-  const args = [req.officer.officeId];
+
+  const localResult = await db.execute({ sql, args: [req.officer.officeId] });
+  const externalApplications = await fetchNormalizedRationCards();
+
+  let combined = [...localResult.rows, ...externalApplications];
 
   if (stage) {
-    sql += ' AND applications.current_stage = ?';
-    args.push(stage);
+    combined = combined.filter((a) => a.current_stage === stage);
   }
 
-  sql += ' ORDER BY schemes.priority ASC, applications.created_at ASC';
+  combined.sort((a, b) => {
+    if (a.priority !== b.priority) return a.priority - b.priority;
+    return new Date(a.created_at) - new Date(b.created_at);
+  });
 
-  const result = await db.execute({ sql, args });
-  res.json({ data: result.rows });
+  res.json({ data: combined });
 });
 
 // GET /api/v1/officer/stats
