@@ -4,10 +4,9 @@ const NETWORK_ERROR_MESSAGE = "Could not reach the server - check that the backe
 
 const formPanel = document.getElementById("formPanel");
 const officerForm = document.getElementById("officerLoginForm");
-const clientForm = document.getElementById("clientTrackForm");
 const officerError = document.getElementById("officerError");
-const clientError = document.getElementById("clientError");
 const roleButtons = document.querySelectorAll(".role-button");
+const CLIENT_PORTAL_URL = "https://welfare-tracker-l7bg.vercel.app/";
 
 async function apiRequest(path, options = {}) {
   const { headers = {}, ...fetchOptions } = options;
@@ -56,17 +55,20 @@ function setSubmitting(form, isSubmitting) {
 function handleRoleSelect(event) {
   const selectedRole = event.currentTarget.dataset.role;
 
+  if (selectedRole === "client") {
+    window.location.href = CLIENT_PORTAL_URL;
+    return;
+  }
+
   formPanel.closest(".landing-section").classList.add("compact");
   formPanel.hidden = false;
-  officerForm.hidden = selectedRole !== "officer";
-  clientForm.hidden = selectedRole !== "client";
+  officerForm.hidden = false;
 
   roleButtons.forEach((button) => {
     button.setAttribute("aria-pressed", String(button.dataset.role === selectedRole));
   });
 
   clearError(officerError);
-  clearError(clientError);
 }
 
 async function handleOfficerLogin(event) {
@@ -98,29 +100,8 @@ async function handleOfficerLogin(event) {
   }
 }
 
-async function handleClientTrack(event) {
-  event.preventDefault();
-  clearError(clientError);
-  setSubmitting(clientForm, true);
-
-  const formData = new FormData(clientForm);
-  const trackingId = formData.get("trackingId").trim();
-
-  try {
-    await apiRequest(`/applications/track/${encodeURIComponent(trackingId)}`);
-
-    // TODO: Build the actual client-status.html page that reads this query param.
-    window.location.href = `client-status.html?id=${encodeURIComponent(trackingId)}`;
-  } catch (error) {
-    showError(clientError, error.message);
-  } finally {
-    setSubmitting(clientForm, false);
-  }
-}
-
 roleButtons.forEach((button) => {
   button.addEventListener("click", handleRoleSelect);
 });
 
 officerForm.addEventListener("submit", handleOfficerLogin);
-clientForm.addEventListener("submit", handleClientTrack);
