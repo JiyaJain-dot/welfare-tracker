@@ -7,7 +7,7 @@
   <title>Officer Dashboard | Welfare Scheme Tracker</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@700&family=Poppins:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css">
   <script src="js/api.js" defer></script>
   <script src="js/officer-dashboard.js" defer></script>
@@ -20,22 +20,15 @@
     </div>
 
     <nav class="sidebar-nav" aria-label="Primary">
-      <a class="sidebar-link is-active" href="officer-dashboard.html">
+      <a class="sidebar-link is-active" id="dashboardNavLink" href="officer-dashboard.html">
         <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 4h7v7H4V4Zm9 0h7v7h-7V4ZM4 13h7v7H4v-7Zm9 0h7v7h-7v-7Z"/></svg></span>
         <span>Dashboard</span>
       </a>
-      <button class="sidebar-link sidebar-link-button" type="button" aria-expanded="false">
+      <a class="sidebar-link sidebar-link-button" id="applicationsNavLink" href="officer-dashboard.html?view=applications" aria-expanded="false">
         <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h10l4 4v14H6V3Zm9 1.8V8h3.2L15 4.8ZM8 11v2h8v-2H8Zm0 4v2h8v-2H8Z"/></svg></span>
         <span>Applications</span>
         <span class="nav-chevron" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6-1.4-1.4 4.6-4.6-4.6-4.6L9 6Z"/></svg></span>
-      </button>
-
-      <span class="sidebar-section-label">Insights</span>
-      <button class="sidebar-link is-disabled" type="button" disabled>
-        <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 19V9h3v10H5Zm5 0V5h3v14h-3Zm5 0v-7h3v7h-3Z"/></svg></span>
-        <span>Analytics</span>
-        <span class="coming-soon">Coming Soon</span>
-      </button>
+      </a>
     </nav>
 
     <div class="sidebar-footer">
@@ -56,9 +49,9 @@
   <main class="officer-main">
     <header class="officer-topbar">
       <div>
-        <p class="breadcrumb">Officer Portal / Dashboard</p>
+        <p class="breadcrumb" id="pageBreadcrumb">Officer Portal / Dashboard</p>
         <h1 id="dashboardTitle">Review Dashboard</h1>
-        <p class="topbar-description">Monitor scheme queues, consent status, and applications needing officer action.</p>
+        <p class="topbar-description" id="pageDescription">Monitor scheme queues, consent status, and applications needing officer action.</p>
       </div>
       <div class="topbar-actions">
         <button class="notification-button" type="button" aria-label="Notifications">
@@ -79,96 +72,111 @@
     <div class="dashboard-alert" id="dashboardAlert" role="alert" hidden></div>
     <div class="dashboard-loading" id="dashboardLoading">Loading dashboard data...</div>
 
-    <section class="metric-grid" aria-label="Application summary" id="summaryGrid">
-      <article class="metric-card metric-blue">
-        <span class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h10l4 4v14H6V3Zm9 1.8V8h3.2L15 4.8ZM8 11v2h8v-2H8Zm0 4v2h8v-2H8Z"/></svg></span>
-        <span class="summary-number" id="totalApplications">0</span>
-        <span class="summary-label">Total Applications</span>
-        <span class="summary-subtitle">Across all systems</span>
-      </article>
-      <article class="metric-card metric-gold">
-        <span class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 .1 0H12Zm1 5v5.2l3.4 2-.9 1.6L11 13.1V7h2Z"/></svg></span>
-        <span class="summary-number" id="pendingReview">0</span>
-        <span class="summary-label">Pending Review</span>
-        <span class="summary-subtitle">Requires attention</span>
-      </article>
-      <article class="metric-card metric-red" id="overdueCard">
-        <span class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 2 20h20L12 3Zm1 13h-2v2h2v-2Zm0-7h-2v5h2V9Z"/></svg></span>
-        <span class="summary-number" id="overdueApplications">0</span>
-        <span class="summary-label">Overdue</span>
-        <span class="summary-subtitle">SLA breached</span>
-      </article>
-      <article class="metric-card metric-green">
-        <span class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1.2 13.6-3.6-3.6 1.4-1.4 2.2 2.2 4.8-4.8 1.4 1.4-6.2 6.2Z"/></svg></span>
-        <span class="summary-number" id="approvedThisMonth">0</span>
-        <span class="summary-label">Approved This Month</span>
-        <span class="summary-subtitle">Across all schemes</span>
-      </article>
-    </section>
+    <section class="dashboard-view" id="dashboardView">
+      <section class="metric-grid" aria-label="Application summary" id="summaryGrid">
+        <article class="metric-card metric-blue">
+          <span class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h10l4 4v14H6V3Zm9 1.8V8h3.2L15 4.8ZM8 11v2h8v-2H8Zm0 4v2h8v-2H8Z"/></svg></span>
+          <span class="summary-number" id="totalApplications">0</span>
+          <span class="summary-label">Total Applications</span>
+          <span class="summary-subtitle">Across all systems</span>
+        </article>
+        <article class="metric-card metric-gold">
+          <span class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 .1 0H12Zm1 5v5.2l3.4 2-.9 1.6L11 13.1V7h2Z"/></svg></span>
+          <span class="summary-number" id="pendingReview">0</span>
+          <span class="summary-label">Pending Review</span>
+          <span class="summary-subtitle">Requires attention</span>
+        </article>
+        <article class="metric-card metric-red" id="overdueCard">
+          <span class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 2 20h20L12 3Zm1 13h-2v2h2v-2Zm0-7h-2v5h2V9Z"/></svg></span>
+          <span class="summary-number" id="overdueApplications">0</span>
+          <span class="summary-label">Overdue</span>
+          <span class="summary-subtitle">SLA breached</span>
+        </article>
+        <article class="metric-card metric-green">
+          <span class="metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm-1.2 13.6-3.6-3.6 1.4-1.4 2.2 2.2 4.8-4.8 1.4 1.4-6.2 6.2Z"/></svg></span>
+          <span class="summary-number" id="approvedThisMonth">0</span>
+          <span class="summary-label">Approved This Month</span>
+          <span class="summary-subtitle">Across all schemes</span>
+        </article>
+      </section>
 
-    <section class="dashboard-panel scheme-overview" aria-labelledby="schemeBreakdownTitle">
-      <div class="panel-heading">
-        <div>
-          <h2 id="schemeBreakdownTitle">Applications by Scheme</h2>
-          <p class="panel-subtitle">Unified view across connected welfare systems</p>
-        </div>
-        <button class="text-link-button" type="button">View All Schemes</button>
-      </div>
-      <div class="scheme-card-row" id="schemeBreakdownList"></div>
-    </section>
-
-    <section class="dashboard-panel priority-panel" aria-labelledby="applicationsTitle">
-      <div class="panel-heading priority-heading">
-        <div>
-          <div class="heading-with-info">
-            <h2 id="applicationsTitle">Priority Queue</h2>
-            <button class="info-button" type="button" aria-label="Priority queue information">i</button>
+      <section class="dashboard-panel scheme-overview" aria-labelledby="schemeBreakdownTitle">
+        <div class="panel-heading">
+          <div>
+            <h2 id="schemeBreakdownTitle">Applications by Scheme</h2>
+            <p class="panel-subtitle">Unified view across connected welfare systems</p>
           </div>
-          <p class="panel-subtitle">Applications requiring attention</p>
+          <a class="text-link-button" href="officer-dashboard.html?view=applications" id="viewApplicationsLink">View All Schemes</a>
         </div>
-      </div>
+        <div class="scheme-card-row" id="schemeBreakdownList"></div>
+      </section>
 
-      <div class="queue-toolbar" aria-label="Priority queue filters">
-        <label class="search-control" for="applicationSearch">
-          <span class="visually-hidden">Search applications</span>
-          <span class="search-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M10.5 4a6.5 6.5 0 0 1 5.1 10.5l4 4-1.4 1.4-4-4A6.5 6.5 0 1 1 10.5 4Zm0 2a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Z"/></svg></span>
-          <input id="applicationSearch" type="search" placeholder="Search by name, ID, phone...">
-        </label>
-        <select id="statusFilter" aria-label="Filter by status">
-          <option value="">All Status</option>
-        </select>
-        <select id="schemeFilter" aria-label="Filter by scheme">
-          <option value="">All Schemes</option>
-        </select>
-        <select id="sourceFilter" aria-label="Filter by source">
-          <option value="">All Sources</option>
-        </select>
-        <button class="sort-toggle" type="button" id="sortToggleButton">Sort by Days Waiting</button>
-        <button class="refresh-button" type="button" id="refreshButton" aria-label="Refresh dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.7 6.3A8 8 0 1 0 20 12h-2a6 6 0 1 1-1.8-4.3L13 11h8V3l-3.3 3.3Z"/></svg></button>
-      </div>
+      <section class="dashboard-panel attention-preview" aria-labelledby="attentionPreviewTitle">
+        <div class="panel-heading">
+          <div>
+            <h2 id="attentionPreviewTitle">Needs Attention</h2>
+            <p class="panel-subtitle">Highest-priority applications from the current queue</p>
+          </div>
+          <a class="text-link-button" href="officer-dashboard.html?view=applications">View all in Applications</a>
+        </div>
+        <div class="attention-list" id="attentionPreviewList"></div>
+      </section>
+    </section>
 
-      <div class="empty-state" id="emptyState" hidden>No applications yet.</div>
+    <section class="applications-view" id="applicationsView" hidden>
+      <section class="dashboard-panel priority-panel" aria-labelledby="applicationsTitle">
+        <div class="panel-heading priority-heading">
+          <div>
+            <div class="heading-with-info">
+              <h2 id="applicationsTitle">Priority Queue</h2>
+              <button class="info-button" type="button" aria-label="Priority queue information">i</button>
+            </div>
+            <p class="panel-subtitle">Applications requiring attention</p>
+          </div>
+        </div>
 
-      <div class="table-wrap queue-table-wrap" id="applicationsTableWrap" hidden>
-        <table class="applications-table queue-table">
-          <thead>
-            <tr>
-              <th>Priority</th>
-              <th>Tracking ID</th>
-              <th>Applicant</th>
-              <th>Scheme</th>
-              <th>Source</th>
-              <th>
-                <button class="table-sort-button" type="button" id="daysSortHeader">Days Waiting</button>
-              </th>
-              <th>Status</th>
-              <th>Consent</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody id="applicationsTableBody"></tbody>
-        </table>
-      </div>
+        <div class="queue-toolbar" aria-label="Priority queue filters">
+          <label class="search-control" for="applicationSearch">
+            <span class="visually-hidden">Search applications</span>
+            <span class="search-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M10.5 4a6.5 6.5 0 0 1 5.1 10.5l4 4-1.4 1.4-4-4A6.5 6.5 0 1 1 10.5 4Zm0 2a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Z"/></svg></span>
+            <input id="applicationSearch" type="search" placeholder="Search by name, ID, phone...">
+          </label>
+          <select id="statusFilter" aria-label="Filter by status">
+            <option value="">All Status</option>
+          </select>
+          <select id="schemeFilter" aria-label="Filter by scheme">
+            <option value="">All Schemes</option>
+          </select>
+          <select id="sourceFilter" aria-label="Filter by source">
+            <option value="">All Sources</option>
+          </select>
+          <button class="sort-toggle" type="button" id="sortToggleButton">Sort by Days Waiting</button>
+          <button class="refresh-button" type="button" id="refreshButton" aria-label="Refresh dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.7 6.3A8 8 0 1 0 20 12h-2a6 6 0 1 1-1.8-4.3L13 11h8V3l-3.3 3.3Z"/></svg></button>
+        </div>
+
+        <div class="empty-state" id="emptyState" hidden>No applications yet.</div>
+
+        <div class="table-wrap queue-table-wrap" id="applicationsTableWrap" hidden>
+          <table class="applications-table queue-table">
+            <thead>
+              <tr>
+                <th>Priority</th>
+                <th>Tracking ID</th>
+                <th>Applicant</th>
+                <th>Scheme</th>
+                <th>Source</th>
+                <th>
+                  <button class="table-sort-button" type="button" id="daysSortHeader">Days Waiting</button>
+                </th>
+                <th>Status</th>
+                <th>Consent</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="applicationsTableBody"></tbody>
+          </table>
+        </div>
+      </section>
     </section>
   </main>
 

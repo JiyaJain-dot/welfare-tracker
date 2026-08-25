@@ -21,6 +21,9 @@ const DASHBOARD_ICONS = {
   graduation: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 10 5-10 5L2 8l10-5Zm-6 8.1 6 3 6-3V16c0 1.7-2.7 3-6 3s-6-1.3-6-3v-4.9Zm14-.1h2v6h-2v-6Z"/></svg>',
   ration: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm0 4h16V7H4v2Zm2 4v2h6v-2H6Zm9 0v2h3v-2h-3Z"/></svg>',
   lock: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V8a5 5 0 0 1 10 0v2h1a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h1Zm2 0h6V8a3 3 0 0 0-6 0v2Zm3 4a1.5 1.5 0 0 0-.5 2.9V18h1v-1.1A1.5 1.5 0 0 0 12 14Z"/></svg>',
+  search: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 4a6.5 6.5 0 0 1 5.1 10.5l4 4-1.4 1.4-4-4A6.5 6.5 0 1 1 10.5 4Zm0 2a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Z"/></svg>',
+  check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 16.6 4.9 12l1.4-1.4 3.2 3.2 8.2-8.2 1.4 1.4-9.6 9.6Z"/></svg>',
+  warning: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 20h20L12 3Zm1 13h-2v2h2v-2Zm0-7h-2v5h2V9Z"/></svg>',
 };
 const SCHEME_CARDS = [
   { label: "Old Age Pension", icon: "oldAge", matches: ["old age pension", "old-age pension"] },
@@ -42,6 +45,13 @@ let lastFocusedManageButton = null;
 
 const dashboardAlert = document.getElementById("dashboardAlert");
 const dashboardLoading = document.getElementById("dashboardLoading");
+const pageBreadcrumb = document.getElementById("pageBreadcrumb");
+const dashboardTitle = document.getElementById("dashboardTitle");
+const pageDescription = document.getElementById("pageDescription");
+const dashboardView = document.getElementById("dashboardView");
+const applicationsView = document.getElementById("applicationsView");
+const dashboardNavLink = document.getElementById("dashboardNavLink");
+const applicationsNavLink = document.getElementById("applicationsNavLink");
 const officerIdentity = document.getElementById("officerIdentity");
 const sidebarOfficerName = document.getElementById("sidebarOfficerName");
 const sidebarAvatar = document.getElementById("sidebarAvatar");
@@ -58,6 +68,7 @@ const applicationsTableBody = document.getElementById("applicationsTableBody");
 const applicationsTableWrap = document.getElementById("applicationsTableWrap");
 const emptyState = document.getElementById("emptyState");
 const schemeBreakdownList = document.getElementById("schemeBreakdownList");
+const attentionPreviewList = document.getElementById("attentionPreviewList");
 const totalApplications = document.getElementById("totalApplications");
 const pendingReview = document.getElementById("pendingReview");
 const overdueApplications = document.getElementById("overdueApplications");
@@ -116,6 +127,29 @@ function readJsonFromSession(key) {
   }
 }
 
+function getCurrentView() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("view") === "applications" ? "applications" : "dashboard";
+}
+
+function renderCurrentView() {
+  const isApplicationsView = getCurrentView() === "applications";
+
+  dashboardView.hidden = isApplicationsView;
+  applicationsView.hidden = !isApplicationsView;
+
+  pageBreadcrumb.textContent = isApplicationsView ? "Officer Portal / Applications" : "Officer Portal / Dashboard";
+  dashboardTitle.textContent = isApplicationsView ? "Applications" : "Review Dashboard";
+  pageDescription.textContent = isApplicationsView
+    ? "Search, filter, and manage priority applications across connected systems."
+    : "Monitor scheme queues, consent status, and applications needing officer action.";
+
+  dashboardNavLink.classList.toggle("is-active", !isApplicationsView);
+  applicationsNavLink.classList.toggle("is-active", isApplicationsView);
+  applicationsNavLink.classList.toggle("is-expanded", isApplicationsView);
+  applicationsNavLink.setAttribute("aria-expanded", String(isApplicationsView));
+}
+
 async function apiRequest(path, options = {}) {
   const { headers = {}, ...fetchOptions } = options;
 
@@ -162,6 +196,7 @@ async function loadApplications() {
   applications = normalizeApplications(data);
   populateFilters();
   renderSchemeBreakdown(applications);
+  renderAttentionPreview(applications);
   renderApplicationsTable();
 }
 
@@ -240,6 +275,43 @@ function renderSchemeEntries(entries) {
     `;
     schemeBreakdownList.appendChild(item);
   });
+}
+
+function renderAttentionPreview(items) {
+  const previewItems = [...items]
+    .sort((a, b) => {
+      return getPriorityRank(getPriority(a)) - getPriorityRank(getPriority(b))
+        || getDaysWaiting(b) - getDaysWaiting(a)
+        || getUpdatedTime(b) - getUpdatedTime(a);
+    })
+    .slice(0, 4);
+
+  if (!previewItems.length) {
+    attentionPreviewList.innerHTML = '<div class="attention-empty">No applications need attention right now.</div>';
+    return;
+  }
+
+  attentionPreviewList.innerHTML = previewItems.map((application) => {
+    const trackingId = application.trackingId || application.tracking_id || "Not assigned";
+    const applicantName = hasPendingConsent(application) ? "Pending consent" : getApplicantName(application);
+    const scheme = formatValue(getSchemeName(application));
+    const status = getStatus(application);
+    const priority = getPriority(application);
+
+    return `
+      <article class="attention-row">
+        <div>
+          <span class="attention-id">${escapeHtml(trackingId)}</span>
+          <strong>${escapeHtml(applicantName)}</strong>
+          <small>${escapeHtml(scheme)}</small>
+        </div>
+        <div class="attention-row-meta">
+          <span class="priority-badge ${getPriorityClass(priority)}">${escapeHtml(priority)}</span>
+          <span class="status-badge ${getStatusClass(status)}">${escapeHtml(formatValue(status))}</span>
+        </div>
+      </article>
+    `;
+  }).join("");
 }
 
 function renderApplicationsTable() {
@@ -458,6 +530,32 @@ function getPriorityClass(priority) {
   return "priority-normal";
 }
 
+function getPriorityRank(priority) {
+  const normalized = String(priority || "").toLowerCase();
+
+  if (normalized.includes("high")) {
+    return 0;
+  }
+
+  if (normalized.includes("medium")) {
+    return 1;
+  }
+
+  return 2;
+}
+
+function getUpdatedTime(application) {
+  const value = application.updatedAt
+    || application.updated_at
+    || application.submittedAt
+    || application.submitted_at
+    || application.createdAt
+    || application.created_at;
+  const time = value ? new Date(value).getTime() : 0;
+
+  return Number.isFinite(time) ? time : 0;
+}
+
 function getSourceClass(source) {
   return getSourceSystem({ source_system: source }) === "Ration Card System" ? "source-ration" : "source-welfare";
 }
@@ -594,10 +692,7 @@ function resetActivitySession() {
   activePanelTab = "details";
   activityHistoryLoaded = false;
   activityHistoryCache = null;
-  activityTimeline.innerHTML = "";
-  activityLogLoading.hidden = true;
-  activityLogError.hidden = true;
-  activityLogEmpty.hidden = true;
+  setActivityLogState("idle");
 }
 
 function setActivePanelTab(tabName) {
@@ -629,22 +724,25 @@ async function loadActivityHistory({ force = false } = {}) {
   }
 
   const applicationId = getApplicationId(currentApplication);
-  activityLogLoading.hidden = false;
-  activityLogError.hidden = true;
-  activityLogEmpty.hidden = true;
-  activityTimeline.innerHTML = "";
+  setActivityLogState("loading");
 
   try {
     const history = await apiRequest(`/officer/applications/${encodeURIComponent(applicationId)}/history`);
+    if (!currentApplication || String(getApplicationId(currentApplication)) !== String(applicationId)) {
+      return;
+    }
+
     activityHistoryCache = normalizeActivityHistory(history);
     activityHistoryLoaded = true;
     renderActivityTimeline(activityHistoryCache);
   } catch (error) {
-    activityTimeline.innerHTML = "";
-    activityLogEmpty.hidden = true;
-    activityLogError.hidden = false;
-  } finally {
-    activityLogLoading.hidden = true;
+    if (!currentApplication || String(getApplicationId(currentApplication)) !== String(applicationId)) {
+      return;
+    }
+
+    activityHistoryCache = null;
+    activityHistoryLoaded = false;
+    setActivityLogState("error");
   }
 }
 
@@ -663,31 +761,50 @@ function normalizeActivityHistory(history) {
 
 function renderActivityTimeline(history) {
   activityTimeline.innerHTML = "";
-  activityLogError.hidden = true;
-  activityLogEmpty.hidden = history.length !== 0;
 
   if (!history.length) {
+    setActivityLogState("empty");
     return;
   }
 
   history.forEach((entry) => {
     const item = document.createElement("li");
-    item.className = "timeline-item";
     const stage = entry.stage || entry.status || "Stage updated";
     const changedBy = entry.changed_by || entry.changedBy || "System";
     const changedAt = formatDateTime(entry.changed_at || entry.changedAt);
     const note = entry.note;
+    const stageClass = getTimelineStageClass(stage);
+
+    item.className = `timeline-item ${stageClass}`;
 
     item.innerHTML = `
-      <span class="timeline-marker" aria-hidden="true"></span>
+      <span class="timeline-marker" aria-hidden="true">${getTimelineStageIcon(stage)}</span>
       <div class="timeline-card">
-        <strong>${escapeHtml(formatValue(stage))}</strong>
+        <strong><span class="timeline-stage-icon" aria-hidden="true">${getTimelineStageIcon(stage)}</span>${escapeHtml(formatValue(stage))}</strong>
         <span>${escapeHtml(changedBy)} · ${escapeHtml(changedAt)}</span>
         ${note ? `<p>${escapeHtml(note)}</p>` : ""}
       </div>
     `;
     activityTimeline.appendChild(item);
   });
+
+  setActivityLogState("timeline");
+}
+
+function setActivityLogState(state) {
+  const showLoading = state === "loading";
+  const showError = state === "error";
+  const showEmpty = state === "empty";
+  const showTimeline = state === "timeline";
+
+  activityLogLoading.hidden = !showLoading;
+  activityLogError.hidden = !showError;
+  activityLogEmpty.hidden = !showEmpty;
+  activityTimeline.hidden = !showTimeline;
+
+  if (!showTimeline) {
+    activityTimeline.innerHTML = "";
+  }
 }
 
 function handlePanelTabClick(event) {
@@ -705,7 +822,7 @@ function handlePanelOutsideClick(event) {
     return;
   }
 
-  const clickedInsidePanel = activityPanel.contains(event.target);
+  const clickedInsidePanel = event.target.closest(".activity-panel-inner");
   const clickedManageButton = event.target.closest(".manage-button");
 
   if (!clickedInsidePanel && !clickedManageButton) {
@@ -717,6 +834,42 @@ function handlePanelEscape(event) {
   if (event.key === "Escape" && activityPanel.classList.contains("is-open")) {
     closeActivityPanel();
   }
+}
+
+function getTimelineStageClass(stage) {
+  const normalized = String(stage || "").toLowerCase();
+
+  if (normalized.includes("reject")) {
+    return "timeline-rejected";
+  }
+
+  if (normalized.includes("approve")) {
+    return "timeline-approved";
+  }
+
+  if (normalized.includes("verif") || normalized.includes("review")) {
+    return "timeline-review";
+  }
+
+  return "timeline-submitted";
+}
+
+function getTimelineStageIcon(stage) {
+  const stageClass = getTimelineStageClass(stage);
+
+  if (stageClass === "timeline-approved") {
+    return getDashboardIcon("check");
+  }
+
+  if (stageClass === "timeline-rejected") {
+    return getDashboardIcon("warning");
+  }
+
+  if (stageClass === "timeline-review") {
+    return getDashboardIcon("search");
+  }
+
+  return getDashboardIcon("ration");
 }
 
 function normalizeStageValue(status) {
@@ -806,6 +959,7 @@ async function initializeDashboard() {
     return;
   }
 
+  renderCurrentView();
   dashboardLoading.hidden = false;
   clearDashboardError();
 
