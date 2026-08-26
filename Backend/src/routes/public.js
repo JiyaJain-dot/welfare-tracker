@@ -18,8 +18,6 @@ async function getApplicationByTrackingId(trackingId) {
   return result.rows[0];
 }
 
-// Shared handler - used by both /track/:trackingId and the /tracker
-// alias your frontend team is building against.
 async function trackHandler(req, res) {
   const { trackingId } = req.params;
   await ready;
@@ -60,8 +58,6 @@ async function trackHandler(req, res) {
   });
 }
 
-// Notifications for a tracking ID - separate from the timeline, meant
-// for a "bell icon" / notifications list UI on the client dashboard.
 async function notificationsHandler(req, res) {
   const { trackingId } = req.params;
   await ready;
@@ -84,6 +80,74 @@ router.get('/track/:trackingId', trackHandler);
 
 // GET /api/v1/applications/notifications/:trackingId
 router.get('/notifications/:trackingId', notificationsHandler);
+
+// GET /api/v1/applications/:trackingId/consent-requests
+// Citizen-facing: shows any PENDING requests from connected external
+// systems (e.g. Ration Card System) asking to share their data into
+// this application. This is the missing "citizen in the loop" step -
+// nothing gets shared until the citizen responds via the endpoint below.
+router.get('/:trackingId/consent-requests', async (req, res) => {
+  const { trackingId } = req.params;
+  await ready;
+
+  const application = await getApplicationByTrackingId(trackingId);
+  if (!application) {
+    return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'No application found for this tracking ID' } });
+  }
+
+  const result = await db.execute({
+    sql: `SELECT id, source_system, status, requested_at
+          FROM consent_requests
+          WHERE application_id = ? AND status = 'pending'
+          ORDER BY requested_at DESC`,
+    args: [application.id],
+  });
+
+  res.json({ data: result.rows });
+});
+
+// POST /api/v1/applications/:trackingId/consent-requests/:id/respond
+// body: { approved: true | false }
+// This is the ONLY place consent_status can move from 'pending' to
+// 'approved' or 'denied' - officers can request, only the citizen can decide.
+router.post('/:trackingId/consent-requests/:id/respond', async (req, res) => {
+  const { trackingId, id } = req.params;
+  const { approved } = req.body;
+
+  if (typeof approved !== 'boolean') {
+    return res.status(400).json({ error: { code: 'MISSING_FIELDS', message: 'approved (true or false) is required' } });
+  }
+
+  await ready;
+
+  const application = await getApplicationByTrackingId(trackingId);
+  if (!application) {
+    return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'No application found for this tracking ID' } });
+  }
+
+  const requestResult = await db.execute({
+    sql: `SELECT id, status FROM consent_requests WHERE id = ? AND application_id = ?`,
+    args: [id, application.id],
+  });
+  const request = requestResult.rows[0];
+
+  if (!request) {
+    return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Consent request not found' } });
+  }
+  if (request.status !== 'pending') {
+    return res.status(409).json({ error: { code: 'ALREADY_RESPONDED', message: `This request was already ${request.status}.` } });
+  }
+
+  const now = new Date().toISOString();
+  const newStatus = approved ? 'approved' : 'denied';
+
+  await db.execute({
+    sql: `UPDATE consent_requests SET status = ?, responded_at = ? WHERE id = ?`,
+    args: [newStatus, now, id],
+  });
+
+  res.json({ data: { consentRequestId: Number(id), status: newStatus, respondedAt: now } });
+});
 
 module.exports = router;
 module.exports.trackHandler = trackHandler;
