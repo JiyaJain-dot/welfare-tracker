@@ -1,10 +1,3 @@
-// This file sets up the database connection using Turso (a free, cloud-
-// hosted SQLite-compatible database) via the libSQL client.
-//
-// The same client also works against a plain local file - if
-// DATABASE_URL isn't set, it falls back to "file:data.db" automatically.
-// That means you can keep developing locally exactly like before,
-// without needing a Turso account just to run things on your laptop.
 const { createClient } = require('@libsql/client');
 
 const db = createClient({
@@ -12,11 +5,6 @@ const db = createClient({
   authToken: process.env.DATABASE_AUTH_TOKEN || undefined,
 });
 
-// Runs once, creates tables if they don't exist yet. Every route awaits
-// this promise before touching the database - that makes it safe even
-// on a "cold start" (the first request after a serverless function has
-// been asleep), since we can't rely on a server that's been running
-// continuously to have already set things up.
 const ready = db.batch(
   [
     `CREATE TABLE IF NOT EXISTS offices (
@@ -69,7 +57,7 @@ const ready = db.batch(
     `CREATE TABLE IF NOT EXISTS notifications (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       application_id INTEGER NOT NULL REFERENCES applications(id),
-      type TEXT NOT NULL, -- 'status_update' | 'document_missing' | 'info'
+      type TEXT NOT NULL,
       message TEXT NOT NULL,
       created_at TEXT NOT NULL
     )`,
@@ -79,6 +67,19 @@ const ready = db.batch(
       consent_granted INTEGER NOT NULL DEFAULT 0,
       granted_by TEXT,
       granted_at TEXT
+    )`,
+    // Replaces the instant-grant external_consents flow above. A row
+    // here represents ONE request from ONE connected external system,
+    // and its status only changes when the CITIZEN responds via the
+    // client portal - never directly by an officer action.
+    `CREATE TABLE IF NOT EXISTS consent_requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      application_id INTEGER NOT NULL REFERENCES applications(id),
+      source_system TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending', -- 'pending' | 'approved' | 'denied'
+      requested_by TEXT NOT NULL,
+      requested_at TEXT NOT NULL,
+      responded_at TEXT
     )`,
   ],
   'write'
