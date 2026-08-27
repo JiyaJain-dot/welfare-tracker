@@ -32,11 +32,32 @@ const SCHEME_CARDS = [
   { label: "Scholarship", icon: "graduation", matches: ["scholarship", "scholarships"] },
   { label: "Ration Card Benefit", icon: "ration", matches: ["ration card", "ration"] },
 ];
+const SCHEME_GROUPS = [
+  {
+    id: "welfare",
+    label: "Welfare Tracker",
+    icon: "oldAge",
+    sourceClass: "source-welfare",
+    schemes: SCHEME_CARDS.slice(0, 4),
+  },
+  {
+    id: "ration",
+    label: "Ration Card System",
+    icon: "ration",
+    sourceClass: "source-ration",
+    schemes: SCHEME_CARDS.slice(4),
+  },
+];
 
 let officerToken = null;
 let applications = [];
 let currentApplication = null;
 let sortMode = "priority";
+let latestSchemeEntries = [];
+const expandedSchemeGroups = {
+  welfare: false,
+  ration: false,
+};
 const pendingConsentRequests = new Set();
 let activePanelTab = "details";
 let activityHistoryLoaded = false;
@@ -56,6 +77,11 @@ const officerIdentity = document.getElementById("officerIdentity");
 const sidebarOfficerName = document.getElementById("sidebarOfficerName");
 const sidebarAvatar = document.getElementById("sidebarAvatar");
 const headerAvatar = document.getElementById("headerAvatar");
+const ssoOfficerName = document.getElementById("ssoOfficerName");
+const ssoAvatar = document.getElementById("ssoAvatar");
+const ssoSessionReference = document.getElementById("ssoSessionReference");
+const welfareVerifiedAt = document.getElementById("welfareVerifiedAt");
+const rationVerifiedAt = document.getElementById("rationVerifiedAt");
 const logoutButton = document.getElementById("logoutButton");
 const sortToggleButton = document.getElementById("sortToggleButton");
 const daysSortHeader = document.getElementById("daysSortHeader");
@@ -64,11 +90,12 @@ const applicationSearch = document.getElementById("applicationSearch");
 const statusFilter = document.getElementById("statusFilter");
 const schemeFilter = document.getElementById("schemeFilter");
 const sourceFilter = document.getElementById("sourceFilter");
+const customSelectDropdowns = document.querySelectorAll("[data-select-dropdown]");
+const sortDropdown = document.querySelector("[data-sort-dropdown]");
 const applicationsTableBody = document.getElementById("applicationsTableBody");
 const applicationsTableWrap = document.getElementById("applicationsTableWrap");
 const emptyState = document.getElementById("emptyState");
 const schemeBreakdownList = document.getElementById("schemeBreakdownList");
-const attentionPreviewList = document.getElementById("attentionPreviewList");
 const totalApplications = document.getElementById("totalApplications");
 const pendingReview = document.getElementById("pendingReview");
 const overdueApplications = document.getElementById("overdueApplications");
@@ -117,6 +144,11 @@ function renderOfficerIdentity() {
   sidebarOfficerName.textContent = label;
   sidebarAvatar.textContent = initials;
   headerAvatar.textContent = initials;
+  ssoOfficerName.textContent = label;
+  ssoAvatar.textContent = initials;
+  ssoSessionReference.textContent = `Session ref: ${getSessionReference(officerToken)}`;
+  welfareVerifiedAt.textContent = `Last verified: ${formatSessionVerifiedTime()}`;
+  rationVerifiedAt.textContent = `Last verified: ${formatSessionVerifiedTime()}`;
 }
 
 function readJsonFromSession(key) {
@@ -196,7 +228,6 @@ async function loadApplications() {
   applications = normalizeApplications(data);
   populateFilters();
   renderSchemeBreakdown(applications);
-  renderAttentionPreview(applications);
   renderApplicationsTable();
 }
 
@@ -256,62 +287,68 @@ function renderSchemeBreakdown(items) {
 }
 
 function renderSchemeEntries(entries) {
+  latestSchemeEntries = entries;
   const normalizedEntries = entries.map(([scheme, count]) => [String(scheme || ""), Number(count) || 0]);
 
   schemeBreakdownList.innerHTML = "";
 
-  SCHEME_CARDS.forEach((card) => {
-    const count = normalizedEntries.reduce((total, [scheme, value]) => {
-      return total + (schemeMatches(scheme, card.matches) ? value : 0);
-    }, 0);
+  SCHEME_GROUPS.forEach((group) => {
+    const schemeCounts = group.schemes.map((card) => ({
+      ...card,
+      count: getSchemeCount(normalizedEntries, card.matches),
+    }));
+    const totalCount = schemeCounts.reduce((total, card) => total + card.count, 0);
+    const isExpanded = expandedSchemeGroups[group.id];
+    const schemeLabel = group.schemes.length === 1 ? "1 scheme" : `${group.schemes.length} schemes`;
     const item = document.createElement("article");
-    item.className = "scheme-card";
+    item.className = `scheme-group-card ${isExpanded ? "is-expanded" : ""}`;
     item.innerHTML = `
-      <span class="scheme-icon" aria-hidden="true">${getDashboardIcon(card.icon)}</span>
-      <span class="scheme-card-copy">
-        <strong>${escapeHtml(card.label)}</strong>
-        <small>${count} applications</small>
-      </span>
+      <button class="scheme-group-toggle" type="button" data-scheme-group="${escapeHtml(group.id)}" aria-expanded="${isExpanded}">
+        <span class="scheme-icon" aria-hidden="true">${getDashboardIcon(group.icon)}</span>
+        <span class="scheme-group-copy">
+          <strong>${escapeHtml(group.label)}</strong>
+          <small>${totalCount} applications across ${schemeLabel}</small>
+          <span class="source-badge ${group.sourceClass}">${escapeHtml(group.label)}</span>
+        </span>
+        <span class="scheme-group-action">
+          <span>${isExpanded ? "Hide schemes" : "Show schemes"}</span>
+          <span class="scheme-group-chevron" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m7 9 5 5 5-5 1.4 1.4L12 16.8l-6.4-6.4L7 9Z"/></svg></span>
+        </span>
+      </button>
+      <div class="scheme-group-details">
+        <div class="scheme-card-row scheme-card-row-nested">
+          ${schemeCounts.map((card) => `
+            <article class="scheme-card">
+              <span class="scheme-icon" aria-hidden="true">${getDashboardIcon(card.icon)}</span>
+              <span class="scheme-card-copy">
+                <strong>${escapeHtml(card.label)}</strong>
+                <small>${card.count} applications</small>
+              </span>
+            </article>
+          `).join("")}
+        </div>
+      </div>
     `;
     schemeBreakdownList.appendChild(item);
   });
 }
 
-function renderAttentionPreview(items) {
-  const previewItems = [...items]
-    .sort((a, b) => {
-      return getPriorityRank(getPriority(a)) - getPriorityRank(getPriority(b))
-        || getDaysWaiting(b) - getDaysWaiting(a)
-        || getUpdatedTime(b) - getUpdatedTime(a);
-    })
-    .slice(0, 4);
+function getSchemeCount(entries, matches) {
+  return entries.reduce((total, [scheme, value]) => {
+    return total + (schemeMatches(scheme, matches) ? value : 0);
+  }, 0);
+}
 
-  if (!previewItems.length) {
-    attentionPreviewList.innerHTML = '<div class="attention-empty">No applications need attention right now.</div>';
+function handleSchemeGroupToggle(event) {
+  const toggle = event.target.closest("[data-scheme-group]");
+
+  if (!toggle) {
     return;
   }
 
-  attentionPreviewList.innerHTML = previewItems.map((application) => {
-    const trackingId = application.trackingId || application.tracking_id || "Not assigned";
-    const applicantName = hasPendingConsent(application) ? "Pending consent" : getApplicantName(application);
-    const scheme = formatValue(getSchemeName(application));
-    const status = getStatus(application);
-    const priority = getPriority(application);
-
-    return `
-      <article class="attention-row">
-        <div>
-          <span class="attention-id">${escapeHtml(trackingId)}</span>
-          <strong>${escapeHtml(applicantName)}</strong>
-          <small>${escapeHtml(scheme)}</small>
-        </div>
-        <div class="attention-row-meta">
-          <span class="priority-badge ${getPriorityClass(priority)}">${escapeHtml(priority)}</span>
-          <span class="status-badge ${getStatusClass(status)}">${escapeHtml(formatValue(status))}</span>
-        </div>
-      </article>
-    `;
-  }).join("");
+  const groupId = toggle.dataset.schemeGroup;
+  expandedSchemeGroups[groupId] = !expandedSchemeGroups[groupId];
+  renderSchemeEntries(latestSchemeEntries);
 }
 
 function renderApplicationsTable() {
@@ -324,7 +361,7 @@ function renderApplicationsTable() {
       || getDaysWaiting(b) - getDaysWaiting(a);
   });
 
-  sortToggleButton.textContent = sortMode === "priority" ? "Sort by Days Waiting" : "Sort by Priority";
+  syncSortDropdown();
   applicationsTableBody.innerHTML = "";
   applicationsTableWrap.hidden = visibleApplications.length === 0;
   emptyState.hidden = visibleApplications.length !== 0;
@@ -338,12 +375,10 @@ function renderApplicationsTable() {
     const scheme = getSchemeName(application);
     const status = getStatus(application);
     const source = getSourceSystem(application);
-    const priority = getPriority(application);
     const isMasked = hasPendingConsent(application);
     const actionMarkup = isMasked ? getConsentActionMarkup(application) : getManageActionMarkup(id);
 
     row.innerHTML = `
-      <td><span class="priority-badge ${getPriorityClass(priority)}">${escapeHtml(priority)}</span></td>
       <td>${escapeHtml(trackingId)}</td>
       <td>${isMasked ? `<span class="masked-applicant">${getDashboardIcon("lock")} Pending consent</span>` : escapeHtml(name)}</td>
       <td>${escapeHtml(formatValue(scheme))}</td>
@@ -397,6 +432,7 @@ function populateFilters() {
   syncSelectOptions(statusFilter, getDistinctValues(applications.map(getStatus)), "All Status");
   syncSelectOptions(schemeFilter, getDistinctValues(applications.map(getSchemeName)).sort((a, b) => getSchemePriority(a) - getSchemePriority(b)), "All Schemes");
   syncSelectOptions(sourceFilter, getDistinctValues(applications.map(getSourceSystem)), "All Sources");
+  syncAllCustomDropdowns();
 }
 
 function syncSelectOptions(select, values, defaultLabel) {
@@ -411,6 +447,190 @@ function syncSelectOptions(select, values, defaultLabel) {
   });
 
   select.value = values.includes(previousValue) ? previousValue : "";
+}
+
+function syncAllCustomDropdowns() {
+  customSelectDropdowns.forEach((dropdown) => {
+    const select = document.getElementById(dropdown.dataset.selectDropdown);
+    syncCustomDropdown(dropdown, select);
+  });
+}
+
+function syncCustomDropdown(dropdown, select) {
+  const trigger = dropdown.querySelector(".custom-dropdown-trigger");
+  const menu = dropdown.querySelector(".custom-dropdown-menu");
+
+  if (!select || !trigger || !menu) {
+    return;
+  }
+
+  const selectedOption = select.options[select.selectedIndex] || select.options[0];
+  trigger.textContent = selectedOption?.textContent || "Select";
+  menu.innerHTML = "";
+
+  Array.from(select.options).forEach((option) => {
+    const button = document.createElement("button");
+    button.className = "custom-dropdown-option";
+    button.type = "button";
+    button.role = "option";
+    button.dataset.value = option.value;
+    button.textContent = option.textContent;
+    button.setAttribute("aria-selected", String(option.value === select.value));
+    menu.appendChild(button);
+  });
+}
+
+function handleCustomDropdownClick(event) {
+  const trigger = event.target.closest(".custom-dropdown-trigger");
+  const option = event.target.closest(".custom-dropdown-option");
+
+  if (trigger) {
+    const dropdown = trigger.closest(".custom-dropdown");
+    toggleDropdown(dropdown);
+    return;
+  }
+
+  if (!option) {
+    return;
+  }
+
+  const dropdown = option.closest(".custom-dropdown");
+
+  if (dropdown?.dataset.selectDropdown) {
+    selectCustomOption(dropdown, option.dataset.value);
+    return;
+  }
+
+  if (dropdown?.dataset.sortDropdown !== undefined) {
+    selectSortOption(dropdown, option.dataset.sortMode);
+  }
+}
+
+function handleCustomDropdownKeydown(event) {
+  const dropdown = event.target.closest(".custom-dropdown");
+
+  if (!dropdown) {
+    return;
+  }
+
+  const options = Array.from(dropdown.querySelectorAll(".custom-dropdown-option"));
+  const activeIndex = options.indexOf(document.activeElement);
+
+  if (event.key === "Escape") {
+    closeDropdown(dropdown);
+    dropdown.querySelector(".custom-dropdown-trigger")?.focus();
+    return;
+  }
+
+  if (event.key === "Enter" || event.key === " ") {
+    const trigger = event.target.closest(".custom-dropdown-trigger");
+
+    if (trigger) {
+      event.preventDefault();
+      toggleDropdown(dropdown);
+    }
+    return;
+  }
+
+  if (event.key !== "ArrowDown" && event.key !== "ArrowUp") {
+    return;
+  }
+
+  event.preventDefault();
+
+  if (!dropdown.classList.contains("is-open")) {
+    openDropdown(dropdown);
+    focusDropdownOption(options, event.key === "ArrowUp" ? options.length - 1 : 0);
+    return;
+  }
+
+  const direction = event.key === "ArrowDown" ? 1 : -1;
+  const nextIndex = activeIndex === -1
+    ? 0
+    : (activeIndex + direction + options.length) % options.length;
+
+  focusDropdownOption(options, nextIndex);
+}
+
+function handleCustomDropdownOutsideClick(event) {
+  if (event.target.closest(".custom-dropdown")) {
+    return;
+  }
+
+  closeAllDropdowns();
+}
+
+function toggleDropdown(dropdown) {
+  if (!dropdown) {
+    return;
+  }
+
+  if (dropdown.classList.contains("is-open")) {
+    closeDropdown(dropdown);
+  } else {
+    openDropdown(dropdown);
+  }
+}
+
+function openDropdown(dropdown) {
+  closeAllDropdowns(dropdown);
+  dropdown.classList.add("is-open");
+  dropdown.querySelector(".custom-dropdown-trigger")?.setAttribute("aria-expanded", "true");
+}
+
+function closeDropdown(dropdown) {
+  dropdown.classList.remove("is-open");
+  dropdown.querySelector(".custom-dropdown-trigger")?.setAttribute("aria-expanded", "false");
+}
+
+function closeAllDropdowns(exceptDropdown = null) {
+  document.querySelectorAll(".custom-dropdown.is-open").forEach((dropdown) => {
+    if (dropdown !== exceptDropdown) {
+      closeDropdown(dropdown);
+    }
+  });
+}
+
+function focusDropdownOption(options, index) {
+  options[index]?.focus();
+}
+
+function selectCustomOption(dropdown, value) {
+  const select = document.getElementById(dropdown.dataset.selectDropdown);
+
+  if (!select) {
+    return;
+  }
+
+  select.value = value;
+  syncCustomDropdown(dropdown, select);
+  closeDropdown(dropdown);
+  dropdown.querySelector(".custom-dropdown-trigger")?.focus();
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function selectSortOption(dropdown, nextSortMode) {
+  if (!nextSortMode || sortMode === nextSortMode) {
+    closeDropdown(dropdown);
+    return;
+  }
+
+  sortMode = nextSortMode;
+  syncSortDropdown();
+  closeDropdown(dropdown);
+  dropdown.querySelector(".custom-dropdown-trigger")?.focus();
+  renderApplicationsTable();
+}
+
+function syncSortDropdown() {
+  if (!sortDropdown || !sortToggleButton) {
+    return;
+  }
+
+  sortToggleButton.textContent = sortMode === "priority" ? "Sort: Priority" : "Sort: Days Waiting";
+  sortDropdown.querySelectorAll("[data-sort-mode]").forEach((option) => {
+    option.setAttribute("aria-selected", String(option.dataset.sortMode === sortMode));
+  });
 }
 
 function getDistinctValues(values) {
@@ -528,32 +748,6 @@ function getPriorityClass(priority) {
   }
 
   return "priority-normal";
-}
-
-function getPriorityRank(priority) {
-  const normalized = String(priority || "").toLowerCase();
-
-  if (normalized.includes("high")) {
-    return 0;
-  }
-
-  if (normalized.includes("medium")) {
-    return 1;
-  }
-
-  return 2;
-}
-
-function getUpdatedTime(application) {
-  const value = application.updatedAt
-    || application.updated_at
-    || application.submittedAt
-    || application.submitted_at
-    || application.createdAt
-    || application.created_at;
-  const time = value ? new Date(value).getTime() : 0;
-
-  return Number.isFinite(time) ? time : 0;
 }
 
 function getSourceClass(source) {
@@ -1073,6 +1267,26 @@ function getInitials(value) {
     .toUpperCase() || "O";
 }
 
+function getSessionReference(token) {
+  if (!token) {
+    return "active";
+  }
+
+  const compactToken = String(token).replace(/[^a-zA-Z0-9]/g, "");
+  const suffix = compactToken.slice(-6).toUpperCase();
+
+  return suffix ? `SSO-${suffix}` : "active";
+}
+
+function formatSessionVerifiedTime() {
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date());
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -1083,19 +1297,25 @@ function escapeHtml(value) {
 }
 
 logoutButton.addEventListener("click", handleLogout);
-sortToggleButton.addEventListener("click", () => {
-  sortMode = sortMode === "priority" ? "days" : "priority";
-  renderApplicationsTable();
-});
 daysSortHeader.addEventListener("click", () => {
   sortMode = "days";
   renderApplicationsTable();
 });
 refreshButton.addEventListener("click", initializeDashboard);
 applicationSearch.addEventListener("input", renderApplicationsTable);
-statusFilter.addEventListener("change", renderApplicationsTable);
-schemeFilter.addEventListener("change", renderApplicationsTable);
-sourceFilter.addEventListener("change", renderApplicationsTable);
+statusFilter.addEventListener("change", () => {
+  syncAllCustomDropdowns();
+  renderApplicationsTable();
+});
+schemeFilter.addEventListener("change", () => {
+  syncAllCustomDropdowns();
+  renderApplicationsTable();
+});
+sourceFilter.addEventListener("change", () => {
+  syncAllCustomDropdowns();
+  renderApplicationsTable();
+});
+schemeBreakdownList.addEventListener("click", handleSchemeGroupToggle);
 applicationsTableBody.addEventListener("click", handleConsentRequest);
 applicationsTableBody.addEventListener("click", handleManageClick);
 detailsTabButton.addEventListener("click", handlePanelTabClick);
@@ -1104,6 +1324,9 @@ closePanelButton.addEventListener("click", closeActivityPanel);
 activityRetryButton.addEventListener("click", () => loadActivityHistory({ force: true }));
 document.addEventListener("click", handlePanelOutsideClick);
 document.addEventListener("keydown", handlePanelEscape);
+document.addEventListener("click", handleCustomDropdownClick);
+document.addEventListener("click", handleCustomDropdownOutsideClick);
+document.addEventListener("keydown", handleCustomDropdownKeydown);
 updateStageButton.addEventListener("click", handleStatusUpdate);
 flagDocumentButton.addEventListener("click", handleDocumentFlag);
 

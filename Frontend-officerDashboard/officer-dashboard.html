@@ -54,6 +54,10 @@
         <p class="topbar-description" id="pageDescription">Monitor scheme queues, consent status, and applications needing officer action.</p>
       </div>
       <div class="topbar-actions">
+        <span class="sso-header-badge tooltip-wrap" tabindex="0" aria-label="Signed in once - authenticated across 2 connected systems.">
+          <span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2 20 5.5v6.1c0 5-3.4 9.6-8 10.4-4.6-.8-8-5.4-8-10.4V5.5L12 2Zm0 2.2L6 6.8v4.8c0 3.9 2.5 7.4 6 8.2 3.5-.8 6-4.3 6-8.2V6.8l-6-2.6Zm3.7 5.5 1.4 1.4-5.8 5.8-3.4-3.4 1.4-1.4 2 2 4.4-4.4Z"/></svg></span>
+          <span class="tooltip-text" role="tooltip">Signed in once - authenticated across 2 connected systems.</span>
+        </span>
         <button class="notification-button" type="button" aria-label="Notifications">
           <span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 22a2.5 2.5 0 0 0 2.4-2h-4.8A2.5 2.5 0 0 0 12 22Zm7-6V11a7 7 0 0 0-5-6.7V3a2 2 0 1 0-4 0v1.3A7 7 0 0 0 5 11v5l-2 2v1h18v-1l-2-2Z"/></svg></span>
           <span class="notification-badge">3</span>
@@ -111,16 +115,52 @@
         <div class="scheme-card-row" id="schemeBreakdownList"></div>
       </section>
 
-      <section class="dashboard-panel attention-preview" aria-labelledby="attentionPreviewTitle">
+      <section class="dashboard-panel federated-identity-card" aria-labelledby="federatedIdentityTitle">
         <div class="panel-heading">
           <div>
-            <h2 id="attentionPreviewTitle">Needs Attention</h2>
-            <p class="panel-subtitle">Highest-priority applications from the current queue</p>
+            <div class="heading-with-info">
+              <h2 id="federatedIdentityTitle">Federated Identity</h2>
+              <span class="sso-info tooltip-wrap" tabindex="0" aria-label="This officer account uses federated authentication - a single login is trusted by both connected welfare systems, eliminating the need for separate credentials per system.">
+                i
+                <span class="tooltip-text" role="tooltip">This officer account uses federated authentication - a single login is trusted by both connected welfare systems, eliminating the need for separate credentials per system.</span>
+              </span>
+            </div>
+            <p class="panel-subtitle">One officer login, authenticated across all connected systems.</p>
           </div>
-          <a class="text-link-button" href="officer-dashboard.html?view=applications">View all in Applications</a>
+          <span class="sso-status-badge">SSO Active</span>
         </div>
-        <div class="attention-list" id="attentionPreviewList"></div>
+
+        <div class="federated-session">
+          <div class="federated-officer">
+            <span class="avatar" id="ssoAvatar" aria-hidden="true">O</span>
+            <span>
+              <strong id="ssoOfficerName">Officer</strong>
+              <small>Welfare Officer</small>
+            </span>
+          </div>
+          <span class="session-reference" id="ssoSessionReference">Session verified</span>
+        </div>
+
+        <div class="federated-system-list" aria-label="Connected systems authenticated by this session">
+          <article class="federated-system-row">
+            <span class="federated-check" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9.5 16.6 4.9 12l1.4-1.4 3.2 3.2 8.2-8.2 1.4 1.4-9.6 9.6Z"/></svg></span>
+            <div>
+              <strong>Welfare Tracker</strong>
+              <span>Authenticated via shared session</span>
+            </div>
+            <small id="welfareVerifiedAt">Last verified: Current session</small>
+          </article>
+          <article class="federated-system-row">
+            <span class="federated-check" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9.5 16.6 4.9 12l1.4-1.4 3.2 3.2 8.2-8.2 1.4 1.4-9.6 9.6Z"/></svg></span>
+            <div>
+              <strong>Ration Card System</strong>
+              <span>Authenticated via shared session</span>
+            </div>
+            <small id="rationVerifiedAt">Last verified: Current session</small>
+          </article>
+        </div>
       </section>
+
     </section>
 
     <section class="applications-view" id="applicationsView" hidden>
@@ -141,16 +181,34 @@
             <span class="search-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M10.5 4a6.5 6.5 0 0 1 5.1 10.5l4 4-1.4 1.4-4-4A6.5 6.5 0 1 1 10.5 4Zm0 2a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Z"/></svg></span>
             <input id="applicationSearch" type="search" placeholder="Search by name, ID, phone...">
           </label>
-          <select id="statusFilter" aria-label="Filter by status">
+          <select class="native-filter-select" id="statusFilter" aria-label="Filter by status" tabindex="-1">
             <option value="">All Status</option>
           </select>
-          <select id="schemeFilter" aria-label="Filter by scheme">
+          <div class="custom-dropdown" data-select-dropdown="statusFilter">
+            <button class="custom-dropdown-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">All Status</button>
+            <div class="custom-dropdown-menu" role="listbox" tabindex="-1"></div>
+          </div>
+          <select class="native-filter-select" id="schemeFilter" aria-label="Filter by scheme" tabindex="-1">
             <option value="">All Schemes</option>
           </select>
-          <select id="sourceFilter" aria-label="Filter by source">
+          <div class="custom-dropdown" data-select-dropdown="schemeFilter">
+            <button class="custom-dropdown-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">All Schemes</button>
+            <div class="custom-dropdown-menu" role="listbox" tabindex="-1"></div>
+          </div>
+          <select class="native-filter-select" id="sourceFilter" aria-label="Filter by source" tabindex="-1">
             <option value="">All Sources</option>
           </select>
-          <button class="sort-toggle" type="button" id="sortToggleButton">Sort by Days Waiting</button>
+          <div class="custom-dropdown" data-select-dropdown="sourceFilter">
+            <button class="custom-dropdown-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">All Sources</button>
+            <div class="custom-dropdown-menu" role="listbox" tabindex="-1"></div>
+          </div>
+          <div class="custom-dropdown sort-dropdown" data-sort-dropdown>
+            <button class="sort-toggle custom-dropdown-trigger" type="button" id="sortToggleButton" aria-haspopup="listbox" aria-expanded="false">Sort: Priority</button>
+            <div class="custom-dropdown-menu" role="listbox" tabindex="-1">
+              <button class="custom-dropdown-option" type="button" role="option" data-sort-mode="priority" aria-selected="true">Sort by Priority</button>
+              <button class="custom-dropdown-option" type="button" role="option" data-sort-mode="days" aria-selected="false">Sort by Days Waiting</button>
+            </div>
+          </div>
           <button class="refresh-button" type="button" id="refreshButton" aria-label="Refresh dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.7 6.3A8 8 0 1 0 20 12h-2a6 6 0 1 1-1.8-4.3L13 11h8V3l-3.3 3.3Z"/></svg></button>
         </div>
 
@@ -160,7 +218,6 @@
           <table class="applications-table queue-table">
             <thead>
               <tr>
-                <th>Priority</th>
                 <th>Tracking ID</th>
                 <th>Applicant</th>
                 <th>Scheme</th>
